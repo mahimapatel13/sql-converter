@@ -26,6 +26,7 @@ def generate_sql():
     else:
         return jsonify({"error": "Failed to generate SQL query"}), 500
 
+
 if __name__ == "__main__":
     natural_language_query = input()
     sql_query = generate_sql(natural_language_query)
