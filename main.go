@@ -1,13 +1,14 @@
 package main
 
 import (
-	"server/config"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"server/config"
 	"time"
-
+    "strings"
 	// "github.com/lib/pq"
 )
 
@@ -78,11 +79,59 @@ func main() {
 
 
 	fmt.Print("starting server....")
-	http.HandleFunc("/register", app.register)
-	http.HandleFunc("/login", app.login)
-	http.HandleFunc("/logout", app.logout)
-	http.HandleFunc("/protected", app.protected)
+	// http.HandleFunc("/register", app.register)
+	// http.HandleFunc("/login", app.login)
+	// http.HandleFunc("/logout", app.logout)
+	// http.HandleFunc("/protected", app.protected)
+    http.HandleFunc("/query", app.query)
 	http.ListenAndServe(":8080", nil)
+}
+
+func (app *App) query(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+        return
+    }
+
+    query := r.FormValue("query")
+    if query == "" {
+        http.Error(w, "Query parameter is required", http.StatusBadRequest)
+        return
+    }
+
+    // Send POST request to the Flask app
+    client := &http.Client{Timeout: 10 * time.Second}
+    requestBody := fmt.Sprintf(`{"query": "%s"}`, query) // JSON body
+    req, err := http.NewRequest("POST", "http://127.0.0.1:5000/query", strings.NewReader(requestBody))
+    if err != nil {
+        http.Error(w, "Failed to create request", http.StatusInternalServerError)
+        return
+    }
+    req.Header.Set("Content-Type", "application/json") // Set JSON content type
+
+    resp, err := client.Do(req)
+    if err != nil {
+        http.Error(w, "Failed to send request to external service", http.StatusInternalServerError)
+        return
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        http.Error(w, "Failed to execute query on external service", resp.StatusCode)
+        return
+    }
+
+    // Read response from the external service
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        http.Error(w, "Failed to read response from external service", http.StatusInternalServerError)
+        return
+    }
+
+    // Send the response back to the client
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    w.Write(responseBody)
 }
 
 func (app *App) register(w http.ResponseWriter, r *http.Request) {

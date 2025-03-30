@@ -6,6 +6,7 @@ from flask import request, jsonify
 genai.configure(api_key="AIzaSyDcB8q3jVebPH5oGyzYq4EoBP1qPRAhuPA")
 
 app = Flask(__name__,)
+app.run(port=5000, debug=True)
 
 @app.route('/query', methods=["POST"])
 def generate_sql():
